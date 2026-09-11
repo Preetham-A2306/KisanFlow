@@ -57,9 +57,13 @@ function Home() {
 
   const [error, setError] = useState("");
 
-  const [crop, setCrop] = useState("");
+  const [crop, setCrop] = useState(
+    () => localStorage.getItem("kisanflow_crop") || ""
+  );
 
-  const [selectedCentre, setSelectedCentre] = useState("");
+  const [selectedCentre, setSelectedCentre] = useState(
+    () => localStorage.getItem("kisanflow_centre") || ""
+  );
 
   /*
     IMPORTANT:
@@ -69,29 +73,19 @@ function Home() {
 
   /* ================= LOAD CENTRES ================= */
 
-  useEffect(() => {
-    loadCentres();
-  }, []);
-
   const loadCentres = async () => {
-    setCentresLoading(true);
-    setError("");
-
-    const { data, error } = await supabase
+    const { data, error: fetchErr } = await supabase
       .from("procurement_centres")
       .select("*")
       .order("id", { ascending: true });
 
     console.log("CENTRES:", data);
-    console.log("CENTRES ERROR:", error);
+    console.log("CENTRES ERROR:", fetchErr);
 
-    if (error) {
-      console.error(error);
+    if (fetchErr) {
+      console.error(fetchErr);
 
-      setError(
-        "Unable to load procurement centres."
-      );
-
+      setError("Unable to load procurement centres.");
       setNearbyCentres([]);
     } else {
       setNearbyCentres(data || []);
@@ -99,6 +93,13 @@ function Home() {
 
     setCentresLoading(false);
   };
+
+  useEffect(() => {
+    async function init() {
+      await loadCentres();
+    }
+    init();
+  }, []);
 
   /* ================= SEARCH CENTRE ================= */
 
@@ -142,6 +143,8 @@ function Home() {
       setHasSearched(false);
     } else {
       setCentre(data);
+      if (data.name) localStorage.setItem("kisanflow_centre", data.name);
+      if (crop) localStorage.setItem("kisanflow_crop", crop);
 
       /*
         Only after successful search
@@ -159,6 +162,9 @@ function Home() {
     const value = e.target.value;
 
     setCrop(value);
+    if (value) {
+      localStorage.setItem("kisanflow_crop", value);
+    }
 
     /*
       Hide old result when farmer changes crop.
@@ -174,6 +180,9 @@ function Home() {
     const value = e.target.value;
 
     setSelectedCentre(value);
+    if (value) {
+      localStorage.setItem("kisanflow_centre", value);
+    }
 
     /*
       Hide old result when farmer changes centre.
@@ -187,6 +196,11 @@ function Home() {
 
   const selectNearbyCentre = (item) => {
     setSelectedCentre(item.name);
+    localStorage.setItem("kisanflow_centre", item.name);
+    if (item.crop) {
+      setCrop(item.crop);
+      localStorage.setItem("kisanflow_crop", item.crop);
+    }
 
     /*
       Do NOT immediately show status.
@@ -210,11 +224,10 @@ function Home() {
     centre?.current_token ?? 0;
 
   /*
-    Demo farmer token.
-    We will connect this to uploaded token
-    in the next update.
+    Farmer token read from localStorage or default 158.
   */
-  const farmerToken = 158;
+  const savedFarmerToken = localStorage.getItem("kisanflow_token");
+  const farmerToken = savedFarmerToken ? parseInt(savedFarmerToken, 10) : 158;
 
   const farmersAhead =
     currentToken > 0

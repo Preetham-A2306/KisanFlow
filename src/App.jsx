@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import {
   Home as HomeIcon,
   CalendarDays,
@@ -8,6 +8,7 @@ import {
   History as HistoryIcon
 } from "lucide-react";
 
+import Welcome from "./pages/Welcome";
 import Home from "./pages/Home";
 import Schedule from "./pages/Schedule";
 import Queue from "./pages/Queue";
@@ -18,22 +19,25 @@ import BackgroundVideo from "./components/BackgroundVideo";
 
 import "./App.css";
 
-function App() {
-  return (
-    <BrowserRouter>
-      <BackgroundVideo />
-      <div className="app-layout">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/schedule" element={<Schedule />} />
-          <Route path="/queue" element={<Queue />} />
-          <Route path="/track" element={<Track />} />
-          <Route path="/updates" element={<Updates />} />
-          <Route path="/history" element={<History />} />
-        </Routes>
+function AppShell() {
+  const location = useLocation();
+  const isWelcome = location.pathname === "/";
 
+  return (
+    <div className="app-layout">
+      <Routes>
+        <Route path="/" element={<Welcome />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/schedule" element={<Schedule />} />
+        <Route path="/queue" element={<Queue />} />
+        <Route path="/track" element={<Track />} />
+        <Route path="/updates" element={<Updates />} />
+        <Route path="/history" element={<History />} />
+      </Routes>
+
+      {!isWelcome && (
         <nav className="bottom-nav">
-          <NavLink to="/" end>
+          <NavLink to="/home" end>
             <HomeIcon size={18} />
             <span>Home</span>
           </NavLink>
@@ -63,7 +67,18 @@ function App() {
             <span>History</span>
           </NavLink>
         </nav>
-      </div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      {/* Live video wallpaper — rendered once here so it stays fixed
+          behind every page/route in the app (Welcome included). */}
+      <BackgroundVideo />
+      <AppShell />
     </BrowserRouter>
   );
 }

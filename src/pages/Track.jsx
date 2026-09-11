@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   PackageCheck,
   CheckCircle2,
@@ -6,7 +6,6 @@ import {
   CreditCard,
   AlertCircle,
   RefreshCw,
-  MapPin,
   XCircle
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
@@ -24,34 +23,7 @@ function Track() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadCentresAndProcurement();
-
-    // Supabase Realtime subscription for procurements
-    const channel = supabase
-      .channel("public:procurements_tracking")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "procurements"
-        },
-        () => {
-          loadCentresAndProcurement();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedCentreName, selectedCrop]);
-
-  const loadCentresAndProcurement = async () => {
-    setLoading(true);
-    setError("");
-
+  const loadCentresAndProcurement = useCallback(async () => {
     try {
       // 1. Fetch centres
       const { data: centreList, error: centreErr } = await supabase
@@ -102,7 +74,34 @@ function Track() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCentreName, selectedCrop]);
+
+  useEffect(() => {
+    async function init() {
+      await loadCentresAndProcurement();
+    }
+    init();
+
+    // Supabase Realtime subscription for procurements
+    const channel = supabase
+      .channel("public:procurements_tracking")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "procurements"
+        },
+        () => {
+          loadCentresAndProcurement();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadCentresAndProcurement]);
 
   const currentCentre = centres.find(
     (c) => c.name.toLowerCase() === selectedCentreName.toLowerCase()
@@ -132,7 +131,10 @@ function Track() {
         </div>
         <button
           className="refresh-btn"
-          onClick={loadCentresAndProcurement}
+          onClick={() => {
+            setLoading(true);
+            loadCentresAndProcurement();
+          }}
           title="Refresh tracking status"
         >
           <RefreshCw size={16} /> Refresh

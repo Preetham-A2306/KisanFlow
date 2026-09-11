@@ -13,34 +13,7 @@ function Schedule() {
     () => localStorage.getItem("kisanflow_crop") || "All"
   );
 
-  useEffect(() => {
-    loadSchedules();
-
-    // Supabase Realtime subscription for schedules
-    const channel = supabase
-      .channel("public:schedules_realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "schedules"
-        },
-        () => {
-          loadSchedules();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
   const loadSchedules = async () => {
-    setLoading(true);
-    setError("");
-
     try {
       const { data: scheduleData, error: scheduleError } = await supabase
         .from("schedules")
@@ -70,6 +43,38 @@ function Schedule() {
     }
   };
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function init() {
+      await loadSchedules();
+    }
+    init();
+
+    // Supabase Realtime subscription for schedules
+    const channel = supabase
+      .channel("public:schedules_realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "schedules"
+        },
+        () => {
+          if (isMounted) {
+            loadSchedules();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Available unique crops for filter
   const uniqueCrops = [
     "All",
@@ -94,7 +99,14 @@ function Schedule() {
           </h1>
           <p>Check procurement operational dates and timings for your crop.</p>
         </div>
-        <button className="refresh-btn" onClick={loadSchedules} title="Refresh schedules">
+        <button
+          className="refresh-btn"
+          onClick={() => {
+            setLoading(true);
+            loadSchedules();
+          }}
+          title="Refresh schedules"
+        >
           <RefreshCw size={16} /> Refresh
         </button>
       </div>

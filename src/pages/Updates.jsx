@@ -18,8 +18,41 @@ function Updates() {
   const [error, setError] = useState("");
   const [newArrivalToast, setNewArrivalToast] = useState("");
 
+  const loadUpdates = async () => {
+    try {
+      const { data: updateData, error: updateError } = await supabase
+        .from("updates")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (updateError) throw updateError;
+
+      const { data: centreData, error: centreError } = await supabase
+        .from("procurement_centres")
+        .select("id, name, location");
+
+      if (centreError) console.error("Centres fetch error in Updates:", centreError);
+
+      const centreMap = {};
+      (centreData || []).forEach((centre) => {
+        centreMap[centre.id] = centre;
+      });
+
+      setUpdates(updateData || []);
+      setCentres(centreMap);
+    } catch (err) {
+      console.error("Updates error:", err);
+      setError("Unable to load latest updates. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    loadUpdates();
+    async function init() {
+      await loadUpdates();
+    }
+    init();
 
     // Supabase Realtime channel for live announcements
     const channel = supabase
@@ -61,39 +94,6 @@ function Updates() {
     };
   }, []);
 
-  const loadUpdates = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const { data: updateData, error: updateError } = await supabase
-        .from("updates")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (updateError) throw updateError;
-
-      const { data: centreData, error: centreError } = await supabase
-        .from("procurement_centres")
-        .select("id, name, location");
-
-      if (centreError) console.error("Centres fetch error in Updates:", centreError);
-
-      const centreMap = {};
-      (centreData || []).forEach((centre) => {
-        centreMap[centre.id] = centre;
-      });
-
-      setUpdates(updateData || []);
-      setCentres(centreMap);
-    } catch (err) {
-      console.error("Updates error:", err);
-      setError("Unable to load latest updates. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getUpdateType = (title) => {
     const text = title?.toLowerCase() || "";
     if (text.includes("queue") || text.includes("waiting")) return "Queue Alert";
@@ -121,7 +121,14 @@ function Updates() {
           </h1>
           <p>Stay informed with live centre announcements, weather alerts, and operational bulletins.</p>
         </div>
-        <button className="refresh-btn" onClick={loadUpdates} title="Refresh updates">
+        <button
+          className="refresh-btn"
+          onClick={() => {
+            setLoading(true);
+            loadUpdates();
+          }}
+          title="Refresh updates"
+        >
           <RefreshCw size={16} /> Refresh
         </button>
       </div>

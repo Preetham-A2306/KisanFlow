@@ -8,14 +8,7 @@ function History() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadHistory();
-  }, []);
-
   const loadHistory = async () => {
-    setLoading(true);
-    setError("");
-
     try {
       // Load all procurement records
       const { data: procData, error: procError } = await supabase
@@ -47,6 +40,13 @@ function History() {
     }
   };
 
+  useEffect(() => {
+    async function init() {
+      await loadHistory();
+    }
+    init();
+  }, []);
+
   return (
     <div className="page">
       <div className="page-header-row">
@@ -58,7 +58,14 @@ function History() {
           </h1>
           <p>Review past crop procurement records, verified quantities and status.</p>
         </div>
-        <button className="refresh-btn" onClick={loadHistory} title="Refresh history">
+        <button
+          className="refresh-btn"
+          onClick={() => {
+            setLoading(true);
+            loadHistory();
+          }}
+          title="Refresh history"
+        >
           <RefreshCw size={16} /> Refresh
         </button>
       </div>
