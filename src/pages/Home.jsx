@@ -17,25 +17,100 @@ import {
 
 import { supabase } from "../lib/supabase";
 
+/* ================= CROP LIST ================= */
+
+const CROPS = [
+  "Paddy",
+  "Wheat",
+  "Maize",
+  "Jowar",
+  "Bajra",
+  "Ragi",
+  "Groundnut",
+  "Red Gram",
+  "Green Gram",
+  "Black Gram",
+  "Bengal Gram",
+  "Soybean",
+  "Sunflower",
+  "Cotton",
+  "Chilli",
+  "Turmeric",
+  "Sugarcane",
+  "Tobacco",
+  "Sesame",
+  "Mustard"
+];
+
 function Home() {
   const navigate = useNavigate();
 
+  /* ================= STATE ================= */
+
   const [centre, setCentre] = useState(null);
+
   const [nearbyCentres, setNearbyCentres] = useState([]);
 
   const [loading, setLoading] = useState(false);
+
   const [centresLoading, setCentresLoading] = useState(true);
 
   const [error, setError] = useState("");
 
   const [crop, setCrop] = useState("");
+
   const [selectedCentre, setSelectedCentre] = useState("");
 
-  /* ================= CHECK CENTRE ================= */
+  /*
+    IMPORTANT:
+    Status is hidden when page first opens.
+  */
+  const [hasSearched, setHasSearched] = useState(false);
+
+  /* ================= LOAD CENTRES ================= */
+
+  useEffect(() => {
+    loadCentres();
+  }, []);
+
+  const loadCentres = async () => {
+    setCentresLoading(true);
+    setError("");
+
+    const { data, error } = await supabase
+      .from("procurement_centres")
+      .select("*")
+      .order("id", { ascending: true });
+
+    console.log("CENTRES:", data);
+    console.log("CENTRES ERROR:", error);
+
+    if (error) {
+      console.error(error);
+
+      setError(
+        "Unable to load procurement centres."
+      );
+
+      setNearbyCentres([]);
+    } else {
+      setNearbyCentres(data || []);
+    }
+
+    setCentresLoading(false);
+  };
+
+  /* ================= SEARCH CENTRE ================= */
 
   const checkCentreStatus = async () => {
     if (!crop || !selectedCentre) {
-      setError("Please select a crop and procurement centre.");
+      setError(
+        "Please select a crop and procurement centre."
+      );
+
+      setCentre(null);
+      setHasSearched(false);
+
       return;
     }
 
@@ -48,60 +123,111 @@ function Home() {
       .eq("name", selectedCentre)
       .maybeSingle();
 
-    console.log("CENTRE DATA:", data);
+    console.log("SELECTED CENTRE:", data);
     console.log("CENTRE ERROR:", error);
 
     if (error) {
-      setError("Unable to load centre information.");
+      setError(
+        "Unable to load centre information."
+      );
+
       setCentre(null);
+      setHasSearched(false);
     } else if (!data) {
-      setError("No information available for this centre.");
+      setError(
+        "No information available for this centre."
+      );
+
       setCentre(null);
+      setHasSearched(false);
     } else {
       setCentre(data);
+
+      /*
+        Only after successful search
+        show the status card.
+      */
+      setHasSearched(true);
     }
 
     setLoading(false);
   };
 
-  /* ================= LOAD NEARBY CENTRES ================= */
+  /* ================= CROP CHANGE ================= */
 
-  useEffect(() => {
-    loadNearbyCentres();
-  }, []);
+  const handleCropChange = (e) => {
+    const value = e.target.value;
 
-  const loadNearbyCentres = async () => {
-    const { data, error } = await supabase
-      .from("procurement_centres")
-      .select("*")
-      .order("id", { ascending: true });
+    setCrop(value);
 
-    console.log("NEARBY CENTRES:", data);
-    console.log("CENTRES ERROR:", error);
-
-    if (error) {
-      console.error(error);
-    } else {
-      setNearbyCentres(data || []);
-    }
-
-    setCentresLoading(false);
+    /*
+      Hide old result when farmer changes crop.
+    */
+    setCentre(null);
+    setHasSearched(false);
+    setError("");
   };
 
-  /* ================= QUEUE CALCULATION ================= */
+  /* ================= CENTRE CHANGE ================= */
 
-  const currentToken = centre?.current_token ?? 145;
+  const handleCentreChange = (e) => {
+    const value = e.target.value;
 
+    setSelectedCentre(value);
+
+    /*
+      Hide old result when farmer changes centre.
+    */
+    setCentre(null);
+    setHasSearched(false);
+    setError("");
+  };
+
+  /* ================= NEARBY CENTRE ================= */
+
+  const selectNearbyCentre = (item) => {
+    setSelectedCentre(item.name);
+
+    /*
+      Do NOT immediately show status.
+      Farmer must click Check Centre Status.
+    */
+    setCentre(null);
+
+    setHasSearched(false);
+
+    setError("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  };
+
+  /* ================= QUEUE ================= */
+
+  const currentToken =
+    centre?.current_token ?? 0;
+
+  /*
+    Demo farmer token.
+    We will connect this to uploaded token
+    in the next update.
+  */
   const farmerToken = 158;
 
-  const farmersAhead = Math.max(
-    farmerToken - currentToken - 1,
-    0
-  );
+  const farmersAhead =
+    currentToken > 0
+      ? Math.max(
+          farmerToken - currentToken - 1,
+          0
+        )
+      : 0;
 
-  const estimatedWait = farmersAhead * 3;
+  const estimatedWait =
+    farmersAhead * 3;
 
-  /* ================= SMART VISIT TIME ================= */
+  /* ================= SMART VISIT ================= */
 
   const getRecommendedTime = () => {
     const now = new Date();
@@ -117,14 +243,19 @@ function Home() {
     );
 
     const formatTime = (date) => {
-      return date.toLocaleTimeString("en-IN", {
-        hour: "numeric",
-        minute: "2-digit"
-      });
+      return date.toLocaleTimeString(
+        "en-IN",
+        {
+          hour: "numeric",
+          minute: "2-digit"
+        }
+      );
     };
 
     return `${formatTime(now)} – ${formatTime(end)}`;
   };
+
+  /* ================= UI ================= */
 
   return (
     <div className="app">
@@ -139,7 +270,9 @@ function Home() {
 
           <div>
 
-            <h1>KisanFlow</h1>
+            <h1>
+              KisanFlow
+            </h1>
 
             <span>
               Know Before You Go
@@ -174,13 +307,13 @@ function Home() {
           </h2>
 
           <span>
-            Check centre status, queue and procurement
-            updates before you go.
+            Select your crop and procurement
+            centre to check the latest information.
           </span>
 
         </section>
 
-        {/* ================= CHECK PROCUREMENT ================= */}
+        {/* ================= SEARCH ================= */}
 
         <section className="search-card">
 
@@ -190,59 +323,69 @@ function Home() {
 
           <div className="select-row">
 
+            {/* ================= CROP ================= */}
+
             <select
               value={crop}
-              onChange={(e) =>
-                setCrop(e.target.value)
-              }
+              onChange={handleCropChange}
             >
 
               <option value="">
                 Select Crop
               </option>
 
-              <option value="Paddy">
-                Paddy
-              </option>
+              {CROPS.map((item) => (
 
-              <option value="Wheat">
-                Wheat
-              </option>
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
 
-              <option value="Maize">
-                Maize
-              </option>
+              ))}
 
             </select>
 
+            {/* ================= CENTRE ================= */}
+
             <select
               value={selectedCentre}
-              onChange={(e) =>
-                setSelectedCentre(e.target.value)
-              }
+              onChange={handleCentreChange}
+              disabled={centresLoading}
             >
 
               <option value="">
-                Select Centre
+                {centresLoading
+                  ? "Loading Centres..."
+                  : "Select Centre"}
               </option>
 
               {nearbyCentres.map((item) => (
+
                 <option
                   key={item.id}
                   value={item.name}
                 >
                   {item.name}
                 </option>
+
               ))}
 
             </select>
 
           </div>
 
+          {/* ================= SEARCH BUTTON ================= */}
+
           <button
             className="primary-btn"
             onClick={checkCentreStatus}
-            disabled={loading}
+            disabled={
+              loading ||
+              !crop ||
+              !selectedCentre
+            }
           >
 
             {loading
@@ -254,145 +397,193 @@ function Home() {
           </button>
 
           {error && (
+
             <p className="error">
               {error}
             </p>
+
           )}
 
         </section>
 
-        {/* ================= STATUS CARD ================= */}
+        {/* ================================================= */}
+        {/* STATUS CARD                                      */}
+        {/* ONLY APPEARS AFTER SEARCH                       */}
+        {/* ================================================= */}
 
-        <section className="status-card">
+        {hasSearched && centre && (
 
-          <div className="status-title">
+          <section className="status-card">
 
-            <div>
+            {/* ================= STATUS TITLE ================= */}
 
-              <span className="label">
-                CURRENT CENTRE STATUS
+            <div className="status-title">
+
+              <div>
+
+                <span className="label">
+                  CURRENT CENTRE STATUS
+                </span>
+
+                <h3>
+                  {centre.name}
+                </h3>
+
+              </div>
+
+              <span
+                className={
+                  centre.status === "Open"
+                    ? "open"
+                    : "nearby-closed"
+                }
+              >
+
+                ● {centre.status}
+
               </span>
-
-              <h3>
-                {centre?.name ||
-                  "Vijayawada Procurement Centre"}
-              </h3>
 
             </div>
 
-            <span className="open">
-              ● {centre?.status || "Open"}
-            </span>
+            {/* ================= STATUS GRID ================= */}
 
-          </div>
+            <div className="status-grid">
 
-          <div className="status-grid">
+              <div>
 
-            <div>
+                <Ticket />
 
-              <Ticket />
+                <strong>
+                  {currentToken}
+                </strong>
 
-              <strong>
-                {currentToken}
-              </strong>
+                <span>
+                  Current Token
+                </span>
+
+              </div>
+
+              <div>
+
+                <Clock3 />
+
+                <strong>
+                  ~{estimatedWait} min
+                </strong>
+
+                <span>
+                  Estimated Wait
+                </span>
+
+              </div>
+
+              <div>
+
+                <PackageCheck />
+
+                <strong>
+                  {farmersAhead}
+                </strong>
+
+                <span>
+                  Farmers Ahead
+                </span>
+
+              </div>
+
+            </div>
+
+            {/* ================= SMART VISIT ================= */}
+
+            <div className="visit-planner">
+
+              <div className="visit-icon">
+
+                <Navigation size={22} />
+
+              </div>
+
+              <div className="visit-content">
+
+                <span className="label">
+                  SMART VISIT PLANNER
+                </span>
+
+                <h4>
+                  Recommended Visit Time
+                </h4>
+
+                <strong>
+                  🕐 {getRecommendedTime()}
+                </strong>
+
+                <p>
+                  Based on the current queue,
+                  this time may help reduce
+                  your waiting period.
+                </p>
+
+              </div>
+
+            </div>
+
+            {/* ================= LOCATION ================= */}
+
+            <div className="centre-location">
+
+              <MapPin size={18} />
 
               <span>
-                Current Token
+                {centre.location}
               </span>
 
             </div>
 
-            <div>
+            {/* ================= OPEN/CLOSED MESSAGE ================= */}
 
-              <Clock3 />
+            <div className="centre-open">
 
-              <strong>
-                ~{estimatedWait} min
-              </strong>
+              <CheckCircle2 size={18} />
 
               <span>
-                Estimated Wait
+
+                {centre.status === "Open"
+                  ? "Centre is currently accepting farmers."
+                  : "Centre is currently closed."}
+
               </span>
 
             </div>
 
-            <div>
+          </section>
 
-              <PackageCheck />
+        )}
 
-              <strong>
-                {farmersAhead}
-              </strong>
+        {/* ================================================= */}
+        {/* BEFORE SEARCH                                    */}
+        {/* ================================================= */}
 
-              <span>
-                Farmers Ahead
-              </span>
+        {!hasSearched && (
 
-            </div>
+          <div className="info-card">
 
-          </div>
+            <h3>
+              🔎 Search a procurement centre
+            </h3>
 
-          {/* ================= SMART VISIT PLANNER ================= */}
-
-          <div className="visit-planner">
-
-            <div className="visit-icon">
-
-              <Navigation size={22} />
-
-            </div>
-
-            <div className="visit-content">
-
-              <span className="label">
-                SMART VISIT PLANNER
-              </span>
-
-              <h4>
-                Recommended Visit Time
-              </h4>
-
-              <strong>
-                🕐 {getRecommendedTime()}
-              </strong>
-
-              <p>
-                Based on the current queue, this time
-                may help reduce your waiting period.
-              </p>
-
-            </div>
+            <p>
+              Select your crop and centre above
+              to view token, queue, waiting time
+              and procurement information.
+            </p>
 
           </div>
 
-          {/* ================= LOCATION ================= */}
+        )}
 
-          <div className="centre-location">
-
-            <MapPin size={18} />
-
-            <span>
-              {centre?.location ||
-                "Vijayawada, NTR District"}
-            </span>
-
-          </div>
-
-          {/* ================= OPEN MESSAGE ================= */}
-
-          <div className="centre-open">
-
-            <CheckCircle2 size={18} />
-
-            <span>
-              Centre is currently accepting farmers.
-            </span>
-
-          </div>
-
-        </section>
-
-        {/* ================= NEARBY CENTRES ================= */}
+        {/* ================================================= */}
+        {/* NEARBY CENTRES                                   */}
+        {/* ================================================= */}
 
         <section className="nearby-section">
 
@@ -417,7 +608,10 @@ function Home() {
 
           </div>
 
+          {/* ================= LOADING ================= */}
+
           {centresLoading && (
+
             <div className="info-card">
 
               <h3>
@@ -425,12 +619,15 @@ function Home() {
               </h3>
 
               <p>
-                Please wait while we load procurement
-                centre information.
+                Please wait while we load
+                procurement centre information.
               </p>
 
             </div>
+
           )}
+
+          {/* ================= EMPTY ================= */}
 
           {!centresLoading &&
             nearbyCentres.length === 0 && (
@@ -442,13 +639,15 @@ function Home() {
                 </h3>
 
                 <p>
-                  Procurement centre information is
-                  currently unavailable.
+                  Procurement centre information
+                  is currently unavailable.
                 </p>
 
               </div>
 
             )}
+
+          {/* ================= CENTRES ================= */}
 
           {!centresLoading &&
             nearbyCentres.length > 0 && (
@@ -477,7 +676,9 @@ function Home() {
                             : "nearby-closed"
                         }
                       >
+
                         ● {item.status}
+
                       </span>
 
                     </div>
@@ -508,18 +709,9 @@ function Home() {
 
                     <button
                       className="nearby-btn"
-                      onClick={() => {
-
-                        setSelectedCentre(item.name);
-
-                        setCentre(item);
-
-                        window.scrollTo({
-                          top: 0,
-                          behavior: "smooth"
-                        });
-
-                      }}
+                      onClick={() =>
+                        selectNearbyCentre(item)
+                      }
                     >
 
                       Check Centre
@@ -538,7 +730,9 @@ function Home() {
 
         </section>
 
-        {/* ================= FEATURES ================= */}
+        {/* ================================================= */}
+        {/* FEATURES                                         */}
+        {/* ================================================= */}
 
         <section className="features">
 
@@ -547,6 +741,8 @@ function Home() {
           </h2>
 
           <div className="feature-grid">
+
+            {/* ================= SCHEDULE ================= */}
 
             <div
               className="feature-card"
@@ -562,12 +758,15 @@ function Home() {
               </h3>
 
               <p>
-                View crop procurement dates and timings.
+                View crop procurement dates
+                and timings.
               </p>
 
               <ArrowRight />
 
             </div>
+
+            {/* ================= QUEUE ================= */}
 
             <div
               className="feature-card"
@@ -583,12 +782,15 @@ function Home() {
               </h3>
 
               <p>
-                Check your token and estimated waiting time.
+                Check your token and estimated
+                waiting time.
               </p>
 
               <ArrowRight />
 
             </div>
+
+            {/* ================= TRACK ================= */}
 
             <div
               className="feature-card"
@@ -604,12 +806,15 @@ function Home() {
               </h3>
 
               <p>
-                Check the current status of your procurement.
+                Check the current status
+                of your procurement.
               </p>
 
               <ArrowRight />
 
             </div>
+
+            {/* ================= UPDATES ================= */}
 
             <div
               className="feature-card"
@@ -625,7 +830,8 @@ function Home() {
               </h3>
 
               <p>
-                Get important centre and procurement updates.
+                Get important centre and
+                procurement updates.
               </p>
 
               <ArrowRight />
@@ -634,7 +840,7 @@ function Home() {
 
           </div>
 
-        </section>
+        </section>[]
 
       </main>
 

@@ -1,55 +1,69 @@
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
-import { Home as HomeIcon, CalendarDays, Ticket, PackageCheck, Bell } from "lucide-react";
+import {
+  Home as HomeIcon,
+  CalendarDays,
+  Ticket,
+  PackageCheck,
+  Bell,
+  History as HistoryIcon
+} from "lucide-react";
 
 import Home from "./pages/Home";
 import Schedule from "./pages/Schedule";
 import Queue from "./pages/Queue";
 import Track from "./pages/Track";
 import Updates from "./pages/Updates";
+import History from "./pages/History";
+import BackgroundVideo from "./components/BackgroundVideo";
 
 import "./App.css";
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <BackgroundVideo />
+      <div className="app-layout">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/schedule" element={<Schedule />} />
+          <Route path="/queue" element={<Queue />} />
+          <Route path="/track" element={<Track />} />
+          <Route path="/updates" element={<Updates />} />
+          <Route path="/history" element={<History />} />
+        </Routes>
 
-        <Route path="/" element={<Home />} />
-        <Route path="/schedule" element={<Schedule />} />
-        <Route path="/queue" element={<Queue />} />
-        <Route path="/track" element={<Track />} />
-        <Route path="/updates" element={<Updates />} />
+        <nav className="bottom-nav">
+          <NavLink to="/" end>
+            <HomeIcon size={18} />
+            <span>Home</span>
+          </NavLink>
 
-      </Routes>
+          <NavLink to="/schedule">
+            <CalendarDays size={18} />
+            <span>Schedule</span>
+          </NavLink>
 
-      <nav className="bottom-nav">
+          <NavLink to="/queue">
+            <Ticket size={18} />
+            <span>Queue</span>
+          </NavLink>
 
-        <NavLink to="/">
-          <HomeIcon size={18} />
-          Home
-        </NavLink>
+          <NavLink to="/track">
+            <PackageCheck size={18} />
+            <span>Track</span>
+          </NavLink>
 
-        <NavLink to="/schedule">
-          <CalendarDays size={18} />
-          Schedule
-        </NavLink>
+          <NavLink to="/updates">
+            <Bell size={18} />
+            <span>Updates</span>
+          </NavLink>
 
-        <NavLink to="/queue">
-          <Ticket size={18} />
-          Queue
-        </NavLink>
-
-        <NavLink to="/track">
-          <PackageCheck size={18} />
-          Track
-        </NavLink>
-
-        <NavLink to="/updates">
-          <Bell size={18} />
-          Updates
-        </NavLink>
-
-      </nav>
+          <NavLink to="/history">
+            <HistoryIcon size={18} />
+            <span>History</span>
+          </NavLink>
+        </nav>
+      </div>
     </BrowserRouter>
   );
 }
